@@ -1,0 +1,24 @@
+# Build artifacts
+build/
+dist/
+output/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local test scratch
+tests/tmp/
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Editor/system files
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
