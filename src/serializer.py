@@ -11,7 +11,7 @@ class SerializeOptions:
         include_properties=True,
         include_raw=True,
         raw_limit=64,
-        indent=2,
+        indent="\t",
         blueprint_only=False,
         include_blueprint_structure=True,
     ):

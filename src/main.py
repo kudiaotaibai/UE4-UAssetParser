@@ -171,7 +171,7 @@ def main():
         include_properties=not args.no_properties and not args.summary_only,
         include_raw=not args.no_raw,
         raw_limit=raw_limit,
-        indent=None if args.compact else 2,
+        indent=None if args.compact else "\t",
         blueprint_only=args.blueprint_only,
     )
 
