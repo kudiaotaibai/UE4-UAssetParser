@@ -139,7 +139,7 @@ def _convert_properties(properties, import_map, export_map):
             continue
 
         converted = _convert_property(prop, import_map, export_map)
-        if converted is not None:
+        if converted is not None and not _contains_parse_garbage(converted):
             result[name] = converted
     return result
 
@@ -155,11 +155,12 @@ def _convert_property(prop, import_map, export_map):
 
     if prop_type == "StructProperty" and isinstance(value, dict):
         struct_type = prop.get("structType") or value.get("structType", "Struct")
-        struct_value = _convert_struct(value)
-        return {
+        struct_value = _convert_struct(value, import_map, export_map)
+        result = {
             "Type": struct_type,
             "Value": struct_value,
         }
+        return result
 
     if prop_type == "ObjectProperty" and isinstance(value, dict):
         return {
@@ -199,7 +200,7 @@ def _convert_property(prop, import_map, export_map):
     }
 
 
-def _convert_struct(value):
+def _convert_struct(value, import_map, export_map):
     struct_type = value.get("structType")
     if struct_type in {"Vector", "Vector2D", "Rotator", "LinearColor", "Color"}:
         return {
@@ -216,13 +217,34 @@ def _convert_struct(value):
     if "fields" in value:
         converted = {}
         for field_name, field_prop in value.get("fields", {}).items():
-            converted[field_name] = field_prop.get("value")
+            field_value = _convert_property(field_prop, import_map, export_map)
+            if field_value is None or _contains_parse_garbage(field_value):
+                continue
+            converted[_lower_first(field_name)] = field_value.get("Value")
         return converted
     return {
         k: v
         for k, v in value.items()
         if k != "structType"
     }
+
+
+def _contains_parse_garbage(value):
+    if isinstance(value, dict):
+        if value.get("unsupported") is True:
+            return True
+        if "rawData" in value or "rawSize" in value or "error" in value:
+            return True
+        return any(_contains_parse_garbage(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_parse_garbage(v) for v in value)
+    return False
+
+
+def _lower_first(name):
+    if not name:
+        return name
+    return name[:1].lower() + name[1:]
 
 
 def _resolve_object_ref(index, import_map, export_map):
