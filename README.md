@@ -28,6 +28,7 @@ UAssetParser.exe D:\vr\ZMKJBS\Content\Blueprints\Global\Module\Character\BP_Char
 
 ```bat
 UAssetParser.exe BP_Character.uasset -o output\BP_Character.json -v
+UAssetParser.exe BP_Character.uasset --blueprint-only --no-raw -o output\BP_Character_blueprint.json
 UAssetParser.exe BP_Character.uasset --summary-only --compact
 UAssetParser.exe BP_Character.uasset --no-raw
 UAssetParser.exe BP_Character.uasset --raw-limit 16
@@ -43,6 +44,7 @@ UAssetParser.exe Content\Blueprints\Global\Module\Character --batch -o output\ba
 - `--no-raw`：不输出未完全识别字段的原始数据。
 - `--raw-limit`：限制 raw 数据输出长度。
 - `--batch`：批量解析目录下的 `.uasset` 文件。
+- `--blueprint-only`：只输出蓝图组件结构，格式更接近 UE 编辑器里看到的组件树。
 
 ## 输出内容
 
@@ -57,6 +59,27 @@ UAssetParser.exe Content\Blueprints\Global\Module\Character --batch -o output\ba
 - `_parseWarnings`：解析过程中遇到的非致命警告。
 
 需要注意的是，工具会尽力解析蓝图和 UMG 的结构信息，但不会完整反编译蓝图事件图、节点连线或 UE4 私有序列化细节。
+
+如果使用 `--blueprint-only`，输出会变成更精简的蓝图组件结构，例如：
+
+```json
+{
+  "CollisionCylinder": {
+    "Class": "CapsuleComponent",
+    "IsRoot": true,
+    "Properties": {
+      "BodyInstance": {
+        "Type": "BodyInstance",
+        "Value": {}
+      }
+    }
+  },
+  "bp_VRCamera": {
+    "Class": "CameraComponent",
+    "Parent": "bp_CameraRoot"
+  }
+}
+```
 
 ## 验证方式
 

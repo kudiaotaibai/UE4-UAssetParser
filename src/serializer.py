@@ -1,6 +1,7 @@
 import json
 import os
 from properties import PropertyParseOptions, parse_export_properties
+from blueprint_structure import build_blueprint_structure
 
 
 class SerializeOptions:
@@ -11,6 +12,8 @@ class SerializeOptions:
         include_raw=True,
         raw_limit=64,
         indent=2,
+        blueprint_only=False,
+        include_blueprint_structure=True,
     ):
         self.include_object_tree = include_object_tree
         self.include_properties = include_properties
@@ -19,6 +22,8 @@ class SerializeOptions:
             raw_limit=raw_limit,
         )
         self.indent = indent
+        self.blueprint_only = blueprint_only
+        self.include_blueprint_structure = include_blueprint_structure
 
 
 def infer_package_name(summary, name_map, filepath=""):
@@ -132,6 +137,13 @@ def serialize_to_dict(summary, name_map, import_map, export_map, reader,
         tree, warnings = build_object_tree(
             summary, name_map, import_map, export_map, reader, options
         )
+        blueprint_structure = build_blueprint_structure(
+            tree, import_map, export_map
+        )
+        if options.blueprint_only:
+            return blueprint_structure
+        if options.include_blueprint_structure:
+            result["blueprintStructure"] = blueprint_structure
         result["objectTree"] = tree
     result["_parseWarnings"] = warnings
     return result

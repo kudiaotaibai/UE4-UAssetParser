@@ -33,9 +33,9 @@ assert summary.Tag == MAGIC_TAG, "Tag mismatch"
 assert summary.LegacyFileVersion == -7, "LegacyFileVersion mismatch"
 assert summary.FileVersionUE4 == 517, "FileVersionUE4 mismatch"
 assert summary.FileVersionLicenseeUE4 == 0, "Licensee version mismatch"
-assert summary.TotalHeaderSize == 340166, "TotalHeaderSize mismatch"
-assert summary.NameCount == 703, "NameCount mismatch"
+assert summary.TotalHeaderSize == 346026, "TotalHeaderSize mismatch"
+assert summary.NameCount == 709, "NameCount mismatch"
 assert summary.ImportCount == 198, "ImportCount mismatch"
-assert summary.ExportCount == 487, "ExportCount mismatch"
+assert summary.ExportCount == 499, "ExportCount mismatch"
 
 print("=== Reader verified OK ===")

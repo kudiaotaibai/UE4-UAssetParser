@@ -64,9 +64,25 @@ def main():
     assert result.returncode == 0, result.stderr
     summary = load_json(summary_json)
     assert summary["packageName"].endswith("/BP_Character")
-    assert summary["exportCount"] == 487
+    assert summary["exportCount"] == 499
     assert "objectTree" not in summary
     assert "exportTable" in summary
+
+    blueprint_json = OUTPUT / "blueprint_only.json"
+    result = run_cmd([
+        str(SAMPLE),
+        "-o",
+        str(blueprint_json),
+        "--blueprint-only",
+        "--no-raw",
+        "--compact",
+    ])
+    assert result.returncode == 0, result.stderr
+    blueprint = load_json(blueprint_json)
+    assert "summary" not in blueprint
+    assert "objectTree" not in blueprint
+    assert "CollisionCylinder" in blueprint
+    assert blueprint["CollisionCylinder"]["Class"] == "CapsuleComponent"
 
     no_raw_json = OUTPUT / "no_raw.json"
     result = run_cmd([

@@ -159,6 +159,10 @@ def main():
         "--compact", action="store_true",
         help="Write compact JSON instead of pretty-printed JSON"
     )
+    parser.add_argument(
+        "--blueprint-only", action="store_true",
+        help="Output an editor-friendly Blueprint component structure only"
+    )
 
     args = parser.parse_args()
     raw_limit = None if args.full_raw else max(0, args.raw_limit)
@@ -168,6 +172,7 @@ def main():
         include_raw=not args.no_raw,
         raw_limit=raw_limit,
         indent=None if args.compact else 2,
+        blueprint_only=args.blueprint_only,
     )
 
     try:

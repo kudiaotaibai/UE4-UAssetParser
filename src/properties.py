@@ -17,6 +17,31 @@ class FPropertyTag:
         self.Type = str(type_fname)
         self.Size = reader.readInt32()
         self.ArrayIndex = reader.readInt32()
+        self.StructName = None
+        self.StructGuid = None
+        self.BoolValue = None
+        self.EnumName = None
+        self.InnerType = None
+        self.ValueType = None
+        self.HasPropertyGuid = False
+        self.PropertyGuid = None
+
+        if self.Type == "StructProperty":
+            self.StructName = str(reader.readFName())
+            self.StructGuid = reader.readGuid().hex()
+        elif self.Type == "BoolProperty":
+            self.BoolValue = reader.readBool()
+        elif self.Type in ("ByteProperty", "EnumProperty"):
+            self.EnumName = str(reader.readFName())
+        elif self.Type in ("ArrayProperty", "SetProperty"):
+            self.InnerType = str(reader.readFName())
+        elif self.Type == "MapProperty":
+            self.InnerType = str(reader.readFName())
+            self.ValueType = str(reader.readFName())
+
+        self.HasPropertyGuid = reader.readBool()
+        if self.HasPropertyGuid:
+            self.PropertyGuid = reader.readGuid().hex()
         self._reader = reader
 
     def is_none(self):
@@ -31,7 +56,7 @@ def read_tagged_value(reader, tag, export_offset, export_end, options):
     size = tag.Size
 
     if t == "BoolProperty":
-        return reader.readByte() != 0
+        return tag.BoolValue
 
     elif t == "IntProperty":
         return reader.readInt32()
@@ -49,10 +74,10 @@ def read_tagged_value(reader, tag, export_offset, export_end, options):
         return str(reader.readFName())
 
     elif t == "TextProperty":
-        return read_text_property(reader)
+        return read_text_property(reader, tag, export_end, options)
 
     elif t == "ByteProperty":
-        return read_byte_property(reader)
+        return read_byte_property(reader, tag)
 
     elif t == "EnumProperty":
         return str(reader.readFName())
@@ -65,16 +90,28 @@ def read_tagged_value(reader, tag, export_offset, export_end, options):
         return reader.readFSoftObjectPath()
 
     elif t == "StructProperty":
-        return read_struct_property(reader, export_offset, export_end, options)
+        return read_struct_property(
+            reader,
+            export_offset,
+            export_end,
+            options,
+            tag.StructName,
+        )
 
     elif t == "ArrayProperty":
-        return read_array_property(reader, export_end, options)
+        return read_array_property(reader, export_end, options, tag.InnerType)
 
     elif t == "MapProperty":
-        return read_map_property(reader, export_end, options)
+        return read_map_property(
+            reader,
+            export_end,
+            options,
+            tag.InnerType,
+            tag.ValueType,
+        )
 
     elif t == "SetProperty":
-        return read_set_property(reader, export_end, options)
+        return read_set_property(reader, export_end, options, tag.InnerType)
 
     else:
         result = {
@@ -103,35 +140,39 @@ def read_raw_blob(reader, size, export_end, options):
     return result
 
 
-def read_text_property(reader):
-    flags = reader.readUInt32()
-    if flags & 0x00000001:
-        return {"textType": "Immutable", "value": reader.readFString()}
-    result = {"textType": "Transient"}
-    if flags & 0x00000002:
-        result["textCultureInvariant"] = True
-    if flags & 0x00000004:
-        result["textIsCultureInvariant"] = False
-    namespace = reader.readFString()
-    key = reader.readFString()
-    source = reader.readFString()
-    result["namespace"] = namespace
-    result["key"] = key
-    result["source"] = source
+def read_text_property(reader, tag, export_end, options):
+    start = reader.tell()
+    raw = reader.readBytes(max(0, min(tag.Size, export_end - start)))
+    result = {"textType": "Raw", "size": tag.Size}
+    try:
+        text = raw.decode("utf-16-le", errors="ignore").replace("\x00", "")
+        text = "".join(ch for ch in text if ch.isprintable()).strip()
+        if text:
+            result["value"] = text
+    except Exception:
+        pass
+    if options.include_raw:
+        if options.raw_limit is not None and len(raw) > options.raw_limit:
+            result["rawData"] = raw[:options.raw_limit].hex()
+            result["rawDataTruncated"] = True
+        else:
+            result["rawData"] = raw.hex()
     return result
 
 
-def read_byte_property(reader):
-    enum_type = reader.readFName()
-    if str(enum_type) != "None":
+def read_byte_property(reader, tag=None):
+    enum_type = tag.EnumName if tag else str(reader.readFName())
+    if enum_type and enum_type != "None":
         enum_value = reader.readFName()
-        return {"enumType": str(enum_type), "value": str(enum_value)}
+        return {"enumType": enum_type, "value": str(enum_value)}
     else:
         return reader.readByte()
 
 
-def read_struct_property(reader, export_offset, export_end, options):
-    struct_type = str(reader.readFName())
+def read_struct_property(reader, export_offset, export_end, options,
+                         struct_type=None):
+    if struct_type is None:
+        struct_type = str(reader.readFName())
     result = {"structType": struct_type}
     if struct_type == "Guid":
         raw = reader.readBytes(16)
@@ -164,12 +205,22 @@ def read_struct_property(reader, export_offset, export_end, options):
         result["A"] = reader.readByte()
         return result
     if struct_type == "Transform":
-        rot = read_struct_property(reader, export_offset, export_end, options)
-        trans = read_struct_property(reader, export_offset, export_end, options)
-        scale = read_struct_property(reader, export_offset, export_end, options)
-        result["rotation"] = rot
-        result["translation"] = trans
-        result["scale3D"] = scale
+        result["rotation"] = {
+            "X": reader.readFloat(),
+            "Y": reader.readFloat(),
+            "Z": reader.readFloat(),
+            "W": reader.readFloat(),
+        }
+        result["translation"] = {
+            "X": reader.readFloat(),
+            "Y": reader.readFloat(),
+            "Z": reader.readFloat(),
+        }
+        result["scale3D"] = {
+            "X": reader.readFloat(),
+            "Y": reader.readFloat(),
+            "Z": reader.readFloat(),
+        }
         return result
     if struct_type == "Box":
         result["Min"] = read_struct_property(reader, export_offset, export_end, options)
@@ -204,10 +255,9 @@ def _read_nested_tags(reader, export_offset, export_end, options):
             break
         if tag.is_none():
             break
-        if tag.Size <= 0:
-            reader.seek(export_end)
-            break
-        if reader.tell() + tag.Size > export_end:
+        payload_start = reader.tell()
+        payload_end = payload_start + max(0, tag.Size)
+        if payload_end > export_end:
             fields[tag.Name] = {
                 "type": tag.Type,
                 "arrayIndex": tag.ArrayIndex,
@@ -227,6 +277,18 @@ def _read_nested_tags(reader, export_offset, export_end, options):
                 "arrayIndex": tag.ArrayIndex,
                 "value": tag.read_value(reader, export_offset, export_end, options),
             }
+            if tag.StructName:
+                fields[tag.Name]["structType"] = tag.StructName
+            if tag.EnumName:
+                fields[tag.Name]["enumType"] = tag.EnumName
+            if tag.InnerType:
+                fields[tag.Name]["innerType"] = tag.InnerType
+            if tag.ValueType:
+                fields[tag.Name]["valueType"] = tag.ValueType
+            if tag.PropertyGuid:
+                fields[tag.Name]["propertyGuid"] = tag.PropertyGuid
+            if reader.tell() < payload_end:
+                reader.seek(payload_end)
         except Exception as e:
             fields[tag.Name] = {
                 "type": tag.Type,
@@ -238,12 +300,12 @@ def _read_nested_tags(reader, export_offset, export_end, options):
                 "type": tag.Type,
                 "error": str(e),
             })
-            reader.seek(min(export_end, reader.tell() + max(0, tag.Size)))
+            reader.seek(min(export_end, payload_end))
     return fields, warnings
 
 
-def read_array_property(reader, export_end, options):
-    element_type = reader.readFName()
+def read_array_property(reader, export_end, options, element_type=None):
+    element_type = element_type or str(reader.readFName())
     count = reader.readInt32()
     items = []
     for _ in range(count):
@@ -252,6 +314,11 @@ def read_array_property(reader, export_end, options):
         dummy_tag.Type = str(element_type)
         dummy_tag.Size = 0
         dummy_tag.ArrayIndex = 0
+        dummy_tag.StructName = None
+        dummy_tag.BoolValue = None
+        dummy_tag.EnumName = None
+        dummy_tag.InnerType = None
+        dummy_tag.ValueType = None
         items.append(dummy_tag.read_value(reader, 0, export_end, options))
     return {
         "elementType": str(element_type),
@@ -260,9 +327,9 @@ def read_array_property(reader, export_end, options):
     }
 
 
-def read_map_property(reader, export_end, options):
-    key_type = reader.readFName()
-    value_type = reader.readFName()
+def read_map_property(reader, export_end, options, key_type=None, value_type=None):
+    key_type = key_type or str(reader.readFName())
+    value_type = value_type or str(reader.readFName())
     count = reader.readInt32()
     entries = []
     for _ in range(count):
@@ -271,11 +338,21 @@ def read_map_property(reader, export_end, options):
         key_tag.Type = str(key_type)
         key_tag.Size = 0
         key_tag.ArrayIndex = 0
+        key_tag.StructName = None
+        key_tag.BoolValue = None
+        key_tag.EnumName = None
+        key_tag.InnerType = None
+        key_tag.ValueType = None
         val_tag = FPropertyTag.__new__(FPropertyTag)
         val_tag.Name = "value"
         val_tag.Type = str(value_type)
         val_tag.Size = 0
         val_tag.ArrayIndex = 0
+        val_tag.StructName = None
+        val_tag.BoolValue = None
+        val_tag.EnumName = None
+        val_tag.InnerType = None
+        val_tag.ValueType = None
         key = key_tag.read_value(reader, 0, export_end, options)
         value = val_tag.read_value(reader, 0, export_end, options)
         entries.append({"key": key, "value": value})
@@ -287,8 +364,8 @@ def read_map_property(reader, export_end, options):
     }
 
 
-def read_set_property(reader, export_end, options):
-    element_type = reader.readFName()
+def read_set_property(reader, export_end, options, element_type=None):
+    element_type = element_type or str(reader.readFName())
     count = reader.readInt32()
     items = []
     for _ in range(count):
@@ -297,6 +374,11 @@ def read_set_property(reader, export_end, options):
         dummy_tag.Type = str(element_type)
         dummy_tag.Size = 0
         dummy_tag.ArrayIndex = 0
+        dummy_tag.StructName = None
+        dummy_tag.BoolValue = None
+        dummy_tag.EnumName = None
+        dummy_tag.InnerType = None
+        dummy_tag.ValueType = None
         items.append(dummy_tag.read_value(reader, 0, export_end, options))
     return {
         "elementType": str(element_type),

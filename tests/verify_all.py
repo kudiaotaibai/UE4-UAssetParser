@@ -56,7 +56,7 @@ print("\n=== VERIFIED: All tables parsed OK ===")
 assert summary.Tag == 0x9E2A83C1, "Tag mismatch"
 assert summary.LegacyFileVersion == -7, "LegacyFileVersion mismatch"
 assert summary.FileVersionUE4 == 517, "FileVersionUE4 mismatch"
-assert len(name_map) == 703, f"NameCount mismatch: {len(name_map)} != 703"
+assert len(name_map) == 709, f"NameCount mismatch: {len(name_map)} != 709"
 assert len(import_map) == 198, f"ImportCount mismatch: {len(import_map)} != 198"
-assert len(export_map) == 487, f"ExportCount mismatch: {len(export_map)} != 487"
+assert len(export_map) == 499, f"ExportCount mismatch: {len(export_map)} != 499"
 print("All assertions passed!")
