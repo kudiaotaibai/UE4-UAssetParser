@@ -1,0 +1,35 @@
+# Build and runtime outputs
+build/
+dist/
+output/
+UAssetParser.exe
+UAssetParser.spec
+
+# PyInstaller artifacts
+*.pkg
+*.pyz
+*.toc
+*.manifest
+*.html
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local test scratch
+tests/tmp/
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Editor/system files
+.vs/
+.idea/
+.vscode/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+Thumbs.db
